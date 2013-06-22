@@ -1,0 +1,231 @@
+<?php
+	$this->db->select('invoices.*, payment_methods.name as payment_method');
+	$this->db->join('payment_methods', 'payment_methods.id = invoices.payment_method_id');
+	$query = $this->db->get_where('invoices', array('invoices.id' => $id));
+	foreach($query->result() as $r){ $invoice = $r; }
+	
+	$this->db->select('partners.*, partner_addresses.*');
+	$this->db->join('partner_addresses','partner_addresses.partner_id = partners.id','left');
+	$this->db->where('address_kind',5);
+	$query1 = $this->db->get_where('partners', array('partners.id' => $invoice->partner_id));
+	foreach($query1->result() as $r1){ $partner = $r1; }
+	
+
+?>
+
+<html>
+<head>
+	<meta charset="utf-8">
+	<style type="text/css" media="all">
+		#page {
+			font-family: Verdana, Arial, sans-serif;
+			font-size: 15px;
+			min-height: 1729px;
+		}
+		
+		.bold {
+			font-weight: bold;
+		}
+		
+		#calculations {
+			padding-left: 0.3cm;
+		}
+		
+		body {
+			margin: 0.5cm;
+			background-image: url('<?= base_url() ?>assets/img/bg-print.jpg');
+			background-repeat: repeat-y;
+		}
+		
+		#page-header {
+			height: 6.5cm;
+		}
+		
+		#logo {
+			width: 9cm;
+			height: 3cm;
+			/* background: #ccc; */
+			-moz-border-radius: 20px;
+		}
+		
+		#to-address {
+			font-size: 9.5pt;
+			width: 9cm;
+			line-height: 0.6cm;
+			border-bottom: solid 1px #ddd;
+			padding: 0.3cm;
+		}
+		
+		#to-address b {
+			font-size: 15px;
+		}
+		
+		#preamble {
+			border-bottom: solid 1px #666;
+ 			border-top: solid 1px #666;
+			padding-top: 0.4cm;
+			padding-left: 0.3cm;
+			padding-bottom: 0.4cm;
+			font-size: 10pt;
+			width: 19cm;
+		}
+		
+		#details {
+/* 			background-color: #fcfcfc; */
+			padding: 0.3cm;
+			font-size: 9pt;
+		}
+		
+		#subject {
+			padding-left: 0.3cm;
+			padding-top: 0.5px;
+			padding-bottom: 0.5px;			
+			font-size: 9pt;
+			
+		}
+		
+		#total {
+			font-size: 18px;
+			padding-left: 1cm;
+			padding-top: 1cm;
+			padding-bottom: 2cm;
+/* 			border-bottom: 0.2cm solid #eee; */
+		}
+		
+		#total .value{
+			font-weight: bold;
+			
+		}
+		
+		#total .note {
+			font-size: 12px;
+			color: #666;
+			font-style: italic;
+		}
+	
+		label {
+			
+			color: #333;			
+			display: inline-block;
+			text-align: left;
+		}		
+		
+		.value {
+			
+			display: inline-block;
+		}
+		
+		
+	</style>
+</head>
+
+<body>
+	
+	<div id="page">
+	
+		<div id="page-header">
+			<div id="logo">
+				
+			</div>
+		</div>
+		
+		
+		<div id="page-content">
+
+			<div id="to-address">
+				<b><?= $partner->name ?></b><br />
+				<?= $partner->street ?><br />
+				<?= $partner->zip ?> <?= $partner->city ?> <?= $partner->province ?><br />
+				<?= $partner->state ?>
+				<br />
+				<br />
+				IVA: <?= $partner->vat ?><br />
+				CF: <?= $partner->cf ?>
+			</div>
+			
+			<div id="preamble">
+				<label class="bold">Fattura n.:</label> <span class="value"><?= $invoice->number ?></span>
+				<span style="display:inline-block; width:5cm"></span>
+				<labe class="bold"l>Del:</label> <span class="value"><?= $invoice->invoice_date ?></span>
+			</div>
+			
+			<div id="details">
+				<?php if(isset($invoice->customer_order)): ?>
+				<p><label class="bold" style="width:10cm">Vostro ordine numero: </label> <span class="value"><?= $invoice->customer_order ?></span></p>
+				<?php endif; ?>
+				<p><label class="bold" style="width: 10cm">Modalit&agrave; di pagamento:</label> <span class="value"><?= $invoice->payment_method ?></span></p>
+			</div>
+			<br />
+			
+			<div id="subject">
+				<p><b></b><label class="bold" style="vertical-align:top">Oggetto:</label></b> <span class="value" style="width: 22cm"><?= $invoice->description ?></span></p>
+			</div>
+			
+			<div id="details">
+				<?php if($invoice->period != ''): ?>	
+				<p><label  style="width: 5cm"><u>Periodo di competenza</u>:</label> <span class="value"><?= $invoice->period ?></span></p>
+				<?php endif; ?>
+				
+				<?php if(isset($invoice->progress_step)): ?>				
+				<?php 
+					$query_sal = $this->db->get_where('attachments', array('id' => $invoice->sal_id));
+					foreach($query_sal->result() as $r_sal):
+				?>
+				<p><label  style="width: 5cm"><u>Comprovante lavori n.</u>:</label> <span class="value"><?= $r_sal->title ?></span></p>
+				<?php endforeach; ?>
+				<?php endif; ?>
+				<br />
+				<?php if($invoice->progress_step != 0): ?>				
+				<p style="display: inline-table; width: 10cm;"><label>Percentuale di avanzamento mensile:</label> <span class="value"><?= $invoice->progress_step ?>%</span></p>
+				<p style="display: inline-table; width: 3cm;">&euro; <?= $invoice->amount_untaxed ?></span></p>
+				<?php endif; ?>
+				<?php if($invoice->transfer > 0): ?>				
+					<p style=" font-size:9pt;"><label style="width: 10cm;">Storno anticipo all'ordine:</label> &euro; <span class="value"><?= $invoice->transfer ?> </span></p>
+				<?php endif; ?>
+				
+				
+			</div>			
+			
+			
+			<div id="calculations">
+				
+				<?php if($invoice->transfer > 0){ ?>
+					
+					
+				<?php 
+					$invoice->amount_untaxed = $invoice->amount_untaxed - $invoice->transfer; 
+				 } ?>
+			</div>
+			
+			<div id="total">
+				<p style="font-size:9pt"><label style="width: 10cm; display:inline-table;">Totale netto</label> <span  style="font-size:9pt">&euro; <?= $invoice->amount_untaxed ?> </p>
+				
+				 
+				
+
+				<?php if($invoice->taxes != ''){ ?>
+					<?php if ($invoice->amount_untaxed != $invoice->amount - $invoice->transfer){ ?>
+					<p class=""><label style="width:10cm"><b>Totale</b></label>
+					
+					<span  style="font-size:9pt"><b>&euro; <?= $invoice->amount_untaxed + round(($invoice->amount_untaxed)/100*$invoice->taxes,2) ?></b></span></p>	
+					<?php } ?>
+				
+					
+				<?php } ?>
+
+				<p style="font-size:9pt"><label style="width: 10cm;display:inline-table;"><?= $invoice->taxes_notes ?></label>
+				
+			</div>
+			<!-- 
+			<div id="details">
+				<p><label>Scadenza fattura</label> <span class="value"><?= $invoice->date_due ?></span></p>
+			</div>-->
+			<div id="notes_printable">
+				<?= $invoice->notes_printable ?>
+			</div>
+		</div>
+		
+	</div>
+	
+</body>
+</html>

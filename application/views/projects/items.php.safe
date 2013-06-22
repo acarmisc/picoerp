@@ -1,0 +1,236 @@
+
+    
+    <?php
+
+	$price_budget = 0;
+	$price = 0;
+	$price_sold = 0;
+	$price_sold_extra = 0;
+?>
+
+
+
+
+
+  
+  <p>Righe: <?= sizeof($items) ?></p>
+<table class="table table-striped table-bordered table-condensed">
+	<thead>
+		<tr>
+			<th width="30px"></th>
+			<th><?= lang('code')?></th>			
+			<th><?= lang('item')?></th>
+			<th><?= lang('qty')?></th>
+			<th><?= lang('order_date')?></th>
+			<th><?= lang('delivery_time')?></th>			
+			<th><?= lang('closing_date')?></th>						
+			<th><?= lang('amounts')?></th>
+			<th><?= lang('wf_step')?></th>			
+			<th></th>
+		</tr>
+	</thead>
+	<tbody>
+		<?php foreach($items as $p):	?>
+		
+		<?php
+			
+			$this->db->select('invoices.number, invoices.wf_step, invoices.amount_untaxed');
+			$this->db->join('purchases', 'purchases.id = purchase_rows.purchase_id');
+			$this->db->join('invoices', 'invoices.purchase_order_id = purchases.id');
+			$this->db->where('project_item_id', $p->id);
+			$q_temp = $this->db->get('purchase_rows');
+			
+			
+			
+			$result_temp = $q_temp->result();
+			if(sizeof($result_temp) > 0){
+				$show_invoice = true;
+				foreach($result_temp as $r_temp){
+					$invoice_tot = $r_temp->amount_untaxed;
+					$invoice_num = $r_temp->number;
+					$invoice_info = "Invoiced: ".$r_temp->number;
+					}
+			}else{
+				$show_invoice = false;
+				$invoice_info = '';
+				$invoice_num = '';
+			}
+			
+			// cerco ordine			
+			$this->db->select('purchases.number, purchases.price_final');
+			$this->db->join('purchases', 'purchases.id = purchase_rows.purchase_id');
+			$this->db->where('project_item_id', $p->id);
+			$q_ord = $this->db->get('purchase_rows');
+			
+			$result_ord = $q_ord->result();
+			
+			
+			if(sizeof($result_ord) > 0){
+				$show_ordered = true;
+				foreach($result_ord as $r_ord){
+					if($ord_num != $r_ord->number){
+						$e = "diff";
+					}else{
+						$e = "";
+					}
+					$ord_tot = $r_ord->price_final;
+					$ord_num = $r_ord->number;
+					$ord_info = "Ordered: ".$r_ord->number;
+					/* TODO mancano da sommare eventuali altri ordini */
+					}
+			}else{
+				$show_ordered = false;
+				$ord_info = '';
+				$ord_num = '';
+			}		
+				
+			
+		?>
+		
+		<tr>
+			<td>
+				<input type="checkbox" id="item-sel-<?= $p->id ?>" />		
+			</td>
+			<td><?= $p->code ?></td>			
+			<td><?= $p->item ?> <b><?= $invoice_num ?> <?= $ord_num ?><b/><br />
+				<span class="second-row"><?= $p->brand ?></span><br />
+				<small><?= $p->description ?></small>
+			</td>
+			<td><?= $p->qty ?> <?= $p->unit ?></td>						
+			<td><?= $p->order_date ?></td>
+			<td><?= $p->delivery_time ?></td>			
+			<td><?= $p->closing_date ?></td>						
+			<td><?php
+			
+				if ($show_invoice != false){
+				
+					if ($marked != true){
+							//echo $invoice_tot.' '.$p->currency;
+							$invoice_tot -= $r_temp->amount_untaxed;
+							$marked = true;
+							//$real_today_w_extra += $r_temp->amount_untaxed;
+					}else{
+						echo '<small><i class="icon-barcode"></i>'.$invoice_num.'</small>';
+					}
+					
+				}else{
+					$real_today_w_extra += $p->price_budget;
+				}
+				
+				if ($show_ordered != false){ 
+					
+					//if ($marked_o != true){
+					if($ord_num != $prev_ord_num){
+							echo '<span class="second-row">ORDER: '.$ord_tot .' '.$p->currency.'</span>';
+							$ord_tot -= $r_temp->amount_untaxed;
+							$marked_o = true;
+							$real_today_w_extra += $ord_tot;
+							$real_today_w_extra -= $p->price_budget;	
+					
+					}else{
+						echo '<small><i class="icon-shopping-cart"></i>'.$ord_num.'</small>';
+						$real_today_w_extra -= $p->price_budget;
+						if($e != ""){
+							$real_today_w_extra += $p->price_budget;
+						}
+						
+					}
+					$prev_ord_num =  $ord_num;
+				}
+				?>
+			<br />
+				<span class="second-row">BUDGET:  <?= $p->price_budget ?> <?= $p->currency ?></span>
+			</td>
+			<td><?= lang('l_'.$p->wf_step) ?></td>			
+			<td width="90px">
+				<?= anchor('project/show_notes_of/'.$p->id, '<i class="icon-comment"></i>', array('rel'=>'tooltip', 'title'=>'notes')) ?>
+				<?= anchor(base_url().'upload/'.$p->bill, '<i class="icon-download-alt"></i>', array('rel'=>'tooltip', 'title'=>'download bill')) ?>
+				
+				<a rel="tooltip" title="show details" data-toggle="modal" href="#myModal" id="project_show_item" name="<?= $p->id ?>"><i class="icon-eye-open"></i></a>
+				
+				<a rel="tooltip" title="delete item" data-toggle="modal" href="#myModal" id="project_delete_item" name="<?= $p->id ?>"><i class="icon-trash"></i></a>
+				
+			</td>
+		</tr>
+		<?php 
+		
+		
+		endforeach; ?>
+	</tbody>
+</table>
+	</div>
+
+<div class="tab-pane" id="loc_charts">
+  
+
+<?php
+	$currency = '&euro;';
+	$tots = projectCalcSum($this->session->userdata('current_project'));
+	$tots_extra = projectCalcSumExtra($this->uri->segment(3));
+?>
+
+
+<div class="well">
+	<div class="total-block">
+		<h4>Total Budget</h4>
+		<p class="total-value"><?= currency($tots['price_budget'],$currency) ?></p>
+	</div>
+	<div class="total-block">
+		<h4>Total Closed</h4>
+		<p class="subtotal-value"><?= currency($tots['price_closed'],$currency) ?></p>
+		<p class="subtotal-value">EXTRA <?= currency($tots_extra['price_closed'],$currency) ?></p>			
+		<p class="total-value"><?= currency($tots_extra['price_closed']+$tots['price_closed'],$currency) ?></p>					
+	</div>		
+	<div class="total-block">
+		<h4>Expected Margin</h4>
+		<p class="total-value"><?= currency(round(($project[0]->order_amount-$tots['price_budget'])/$project[0]->order_amount*100,0),'%') ?></p>
+		<p class="subtotal-value"><?= currency(($project[0]->order_amount-$tots['price_budget']),'€') ?></p>
+	</div>	
+
+	<div class="total-block">
+		<h4 style="text-align: right;">Real today today margin<br /> (without extra)</h4>
+		<p class="total-value">	<?= round(-($real_today_w_extra-$project[0]->order_amount)/$project[0]->order_amount*100,0) ?> %</p>
+		
+		<p class="total-value">
+			<?php
+				echo $real_today_w_extra." &euro;";
+			?>
+		</p>
+		
+		<p class="subtotal-value"><?= $project[0]->order_amount-$tots['price_closed'] ?> &euro;</p>
+	</div>	
+	
+			
+	<div class="total-block">
+		<h4>Real Today Margin</h4>
+		<p>
+			<?php
+				$t_total_sold = $project[0]->order_amount+$tots_extra['order_amounts'];
+				$t_total_closed = $tots_extra['price_closed']+$tots['price_closed'];
+				$t_diff = $t_total_sold - $t_total_closed;
+/*
+				echo 'total sold '.$t_total_sold.'<br />';
+				echo 'total closed '.$t_total_closed.'<br />';
+				echo 'diff '.$t_diff;
+*/
+
+				// TODO uguale a quello fatto, ma sugli ordini extra
+
+			?>
+		</p>
+		<p class="total-value">	
+			<?php // da sommare agli extra ?>
+			<?= round(-($real_today_w_extra-$project[0]->order_amount)/$project[0]->order_amount*100,0) ?> %</p>
+		
+		<p class="total-value">
+			<?php // da sommare agli extra ?>
+			<?php echo $real_today_w_extra." &euro;";	?>
+		</p>
+	</div>	
+	<div class="total-block" style="background-color: #eee; padding-left: 10px;">
+		<h4>Total Sold</h4>
+		<p class="subtotal-value"><?= currency($project[0]->order_amount,$currency) ?></p>
+		<p class="subtotal-value">EXTRA <?= currency($tots_extra['order_amounts'],$currency) ?></p>		
+		<p class="total-value"><?= currency($project[0]->order_amount+$tots_extra['order_amounts'],$currency) ?></p>
+	</div>
+</div>
